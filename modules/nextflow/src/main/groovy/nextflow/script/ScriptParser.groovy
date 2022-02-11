@@ -173,7 +173,7 @@ class ScriptParser {
         try {
             NextflowMeta.instance.checkDsl2Mode(scriptText)
             Script baseScript = interpreter.parse(scriptText, clazzName)
-            if( baseScript instanceof BaseScript == false){
+            if( baseScript !instanceof BaseScript ){
                throw new CompilationFailedException(0, null)
             }
             script = (BaseScript)baseScript
