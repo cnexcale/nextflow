@@ -316,7 +316,7 @@ class FileHelper {
         else if( uri.scheme == 'http' || uri.scheme == 'https' || uri.scheme == 'ftp' ) {
             Paths.get(uri)
         }
-        else if( uri.scheme in PLUGINS_MAP.keySet() ) {
+        else if( !uri.scheme in PLUGINS_MAP.keySet() ) {
             throw new IllegalStateException("Missing plugin '${PLUGINS_MAP[uri.scheme]}' required to read file: $uri")
         }
         else {
