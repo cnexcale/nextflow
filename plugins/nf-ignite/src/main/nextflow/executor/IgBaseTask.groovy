@@ -15,6 +15,7 @@
  */
 package nextflow.executor
 
+
 import java.nio.channels.ClosedByInterruptException
 
 import groovy.transform.CompileStatic
@@ -25,6 +26,7 @@ import nextflow.processor.TaskId
 import nextflow.processor.TaskRun
 import nextflow.scheduler.Protocol.TaskResources
 import nextflow.util.KryoHelper
+import nextflow.Global
 import org.apache.ignite.compute.ComputeJob
 import org.apache.ignite.lang.IgniteCallable
 /**
@@ -64,6 +66,11 @@ abstract class IgBaseTask<T> implements IgniteCallable<T>, ComputeJob {
     protected transient TaskBean bean
 
     /**
+     * Provides access to the config map of the Session associated with the TaskRun object
+     */
+    private Map sessionConfig;
+
+    /**
      * Initialize the grid gain task wrapper
      *
      * @param task The task instance to be executed
@@ -75,6 +82,7 @@ abstract class IgBaseTask<T> implements IgniteCallable<T>, ComputeJob {
         this.bean = new TaskBean(task)
         this.payload = KryoHelper.serialize(bean)
         this.resources = new TaskResources(task)
+        this.sessionConfig = task.processor.session.config
     }
 
     /** ONLY FOR TESTING PURPOSE */
@@ -112,6 +120,14 @@ abstract class IgBaseTask<T> implements IgniteCallable<T>, ComputeJob {
     @Override
     final T call() throws Exception {
         try {
+            /**
+             * Set sessionConfig to make AWS/S3FS config and credentials
+             * available before creating S3FileSystem during deserialize()
+             */
+            if (sessionConfig != null) {
+                Global.setConfig(sessionConfig)
+            }
+
             deserialize()
 
             /*
