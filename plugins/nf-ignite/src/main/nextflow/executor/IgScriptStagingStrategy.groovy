@@ -18,6 +18,8 @@ package nextflow.executor
 
 import java.nio.file.Files
 import java.nio.file.Path
+import groovy.util.logging.Slf4j
+
 
 import nextflow.processor.TaskRun
 
@@ -31,10 +33,12 @@ import nextflow.processor.TaskRun
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@Slf4j
 class IgScriptStagingStrategy extends IgFileStagingStrategy implements ScriptFileCopyStrategy {
 
     @Delegate(interfaces=false)
     SimpleFileCopyStrategy delegate
+
 
     /**
      * {@inheritDoc}
