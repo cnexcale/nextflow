@@ -8,6 +8,7 @@ class IgMonitoringUpdate {
     IgBaseTask task
     Resources nodeResources
     Session session
+    String nodeId
     int queueSize
     int activeTasks
 }
