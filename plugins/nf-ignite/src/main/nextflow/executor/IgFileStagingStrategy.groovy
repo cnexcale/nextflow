@@ -149,4 +149,12 @@ class IgFileStagingStrategy implements StagingStrategy {
         }
     }
 
+    private static boolean isValidScratchDir(TaskBean task) {
+        try {
+            Paths.get(task?.scratch?.toString())
+            return true
+        } catch (InvalidPathException ipe) {
+            return false
+        }
+    }
 }
