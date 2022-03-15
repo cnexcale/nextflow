@@ -16,7 +16,9 @@
 
 package nextflow.executor
 import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
+import java.nio.file.Paths
 
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
@@ -53,10 +55,10 @@ class IgFileStagingStrategy implements StagingStrategy {
     /**
      * A temporary where all files are cached. The folder is deleted during instance shut-down
      */
-    private static final Path _localCacheDir = FileHelper.createLocalDir()
+    private Path _localCacheDir
 
     static {
-        Runtime.getRuntime().addShutdownHook { _localCacheDir.deleteDir() }
+        Runtime.getRuntime().addShutdownHook { _localCacheDir?.deleteDir() }
     }
 
     Path getLocalCacheDir() { _localCacheDir }
@@ -68,8 +70,19 @@ class IgFileStagingStrategy implements StagingStrategy {
     @Override
     void stage() {
 
-        // create a local scratch dir
-        localWorkDir = FileHelper.createLocalDir()
+        def useScratchDir = isValidScratchDir(task)
+
+        // create a local scratch dir, use configured scratch if available
+        localWorkDir = useScratchDir
+                        ? FileHelper.createTempFolder(Paths.get(task.scratch.toString()))
+                        : FileHelper.createLocalDir()
+        log?.debug "Task ${task.name} >using ${localWorkDir?.toString()} as scratch/local work dir"
+        // create local cache dir, use configured scratch if available
+        _localCacheDir = useScratchDir
+                        ? FileHelper.createTempFolder(Paths.get(task.scratch.toString()))
+                        : FileHelper.createLocalDir()
+
+        log?.debug "Task ${task.name} > using ${_localCacheDir?.toString()} as cache dir"
 
         if( !task.inputFiles )
             return
@@ -97,7 +110,7 @@ class IgFileStagingStrategy implements StagingStrategy {
     @Override
     void unstage() {
 
-        log?.debug "Unstaging file names: $task.outputFiles"
+        log?.debug "Task ${task.name} > Unstaging file names: $task.outputFiles"
 
         if( !task.outputFiles )
             return
