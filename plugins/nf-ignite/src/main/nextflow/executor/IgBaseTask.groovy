@@ -176,6 +176,10 @@ abstract class IgBaseTask<T> implements IgniteCallable<T>, ComputeJob {
 
     TaskId getTaskId() { taskId }
 
+    String getTaskName() { bean.name }
+
+    Map getSessionConfig() { sessionConfig }
+
     @Override
     boolean equals( Object obj ) {
         if( obj.class != this.class ) return false
