@@ -16,6 +16,10 @@
 
 package nextflow.scheduler
 
+import nextflow.util.IgMonitor
+import nextflow.util.IgMonitoringUpdate
+import nextflow.util.StringUtils
+
 import java.nio.channels.ClosedByInterruptException
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentHashMap
@@ -296,10 +300,15 @@ class SchedulerAgent implements Closeable {
 
                     // -- send to the executor
                     try {
-                        SchedulerAgent.this.runningTasks[it.taskId] = new RunHolder(taskExecutor.submit( runTask(it) ))
+                        SchedulerAgent.this.runningTasks[it.taskId] = new RunHolder(taskExecutor.submit( runTask(it, avail) ))
                     }
                     catch (RejectedExecutionException e) {
                         rollbackResources(it, true)
+
+                        if (isMonitoringEnabled(it)) {
+                            sendMonitoringUpdate(collectMonitoringInfo(it, avail, TaskEvents.TASK_ERROR, e))
+                        }
+
                         throw e
                     }
 
@@ -334,21 +343,21 @@ class SchedulerAgent implements Closeable {
             return true
         }
 
-        Runnable runTask(IgBaseTask task) {
+        Runnable runTask(IgBaseTask task, Resources currentResources ) {
             new Runnable() {
-                @Override void run() { runTask0(task) }
+                @Override void run() { runTask0(task, currentResources) }
             }
         }
 
-        void runTask0( IgBaseTask task ) {
+        void runTask0( IgBaseTask task, Resources currentResources ) {
 
             // -- signal that task has started
-            notifyTaskStart(task)
+            notifyTaskStart(task, currentResources)
 
             boolean error
             try {
                 def result = task.call()
-                notifyComplete(task, result)
+                notifyComplete(task, currentResources, result)
                 error = result instanceof Integer && ((int)result) > 0
             }
             catch( InterruptedException | ClosedByInterruptException e ) {
@@ -356,7 +365,7 @@ class SchedulerAgent implements Closeable {
                 error = true
             }
             catch( Throwable e ) {
-                notifyError(task, e)
+                notifyError(task, currentResources, e)
                 error = true
             }
             finally {
@@ -423,6 +432,14 @@ class SchedulerAgent implements Closeable {
     @TupleConstructor
     private static class RunHolder {
         Future future
+    }
+
+    private static class TaskEvents {
+        final static String TASK_START = "Task started"
+        final static String TASK_COMPLETED = "Task completed"
+        final static String TASK_ERROR = "Task error"
+        final static String TASK_CANCEL = "Task cancelled"
+        final static String NODE_SHUTDOWN = "Node shutdown"
     }
 
     /**
@@ -629,8 +646,12 @@ class SchedulerAgent implements Closeable {
      * Notify the scheduler that the task execution has started by sending a
      * {@link TaskStart} message
      */
-    @PackageScope void notifyTaskStart(IgBaseTask task) {
+    @PackageScope void notifyTaskStart(IgBaseTask task, Resources currentResources) {
         sendMessageToMaster(TOPIC_SCHEDULER_EVENTS, new TaskStart(task))
+
+        if (isMonitoringEnabled(task)) {
+            sendMonitoringUpdate(collectMonitoringInfo(task, currentResources, TaskEvents.TASK_START))
+        }
     }
 
     @PackageScope void notifyNodeStart() {
@@ -648,14 +669,19 @@ class SchedulerAgent implements Closeable {
      * @param task
      * @param result
      */
-    @PackageScope void notifyComplete(IgBaseTask task, result) {
+    @PackageScope void notifyComplete(IgBaseTask task, Resources currentResources, result) {
         try {
             log.trace "=== Notify task complete: taskId=${task.taskId}; result=$result"
             final payload = TaskComplete.create(task, result)
             sendMessageToMaster(TOPIC_SCHEDULER_EVENTS, payload)
+
+            if (isMonitoringEnabled(task)) {
+                sendMonitoringUpdate(collectMonitoringInfo(task, currentResources, TaskEvents.TASK_COMPLETED))
+            }
         }
         catch( Exception e ) {
             log.error "=== Failed to notify task completion: taskId=${task.taskId}; result=$result", e
+            sendMonitoringUpdate(collectMonitoringInfo(task, currentResources, TaskEvents.TASK_ERROR, e))
         }
     }
 
@@ -665,12 +691,16 @@ class SchedulerAgent implements Closeable {
      * @param task
      * @param error
      */
-    @PackageScope void notifyError(IgBaseTask task, Throwable error) {
+    @PackageScope void notifyError(IgBaseTask task, Resources currentResources, Throwable error) {
         try {
             final taskId = task.taskId
             log.trace "=== Notify task complete [error]: taskId=${taskId}; error=$error"
             final payload = TaskComplete.error(task, error)
             sendMessageToMaster(TOPIC_SCHEDULER_EVENTS, payload)
+
+            if (isMonitoringEnabled(task)) {
+                sendMonitoringUpdate(collectMonitoringInfo(task, currentResources, TaskEvents.TASK_ERROR, error))
+            }
         }
         catch( Exception e ) {
             log.error "=== Failed to notify task completion: taskId=${task.taskId}; error=$error", e
@@ -699,6 +729,39 @@ class SchedulerAgent implements Closeable {
         }
     }
 
+    private boolean isMonitoringEnabled(IgBaseTask task) {
+        try {
+            def monitoringEndpoint = (String)task?.sessionConfig?.navigate(IgMonitor.CFG_MONITORING_ENDPOINT)
+
+            StringUtils.URL_PROTOCOL
+                        .matcher(monitoringEndpoint)
+                        .matches()
+        } catch(Exception e) {
+            false
+        }
+    }
+    private IgMonitoringUpdate collectMonitoringInfo(IgBaseTask task,
+                                                     Resources currentResources,
+                                                     String taskEvent,
+                                                     Throwable error = null) {
+        new IgMonitoringUpdate(
+                nodeId: ignite?.cluster()?.localNode()?.id()?.toString(),
+                clusterGroup: ignite?.name(), // configured cluster group is set as Ignite InstanceName
+                task: task,
+                event: taskEvent,
+                nodeResources: total,
+                currentResources: currentResources,
+                pendingTasks: pendingTasks?.size(),
+                activeTasks: runningTasks?.size(),
+                error: error
+        )
+    }
+
+    private void sendMonitoringUpdate(IgMonitoringUpdate update) {
+        log?.debug("=== Sending monitoring update for task ${update.task?.taskId}")
+        def igMonitor = new IgMonitor(update.task.sessionConfig)
+        igMonitor.sendUpdate(update)
+    }
     /**
      * Shutdown the scheduler agent
      */
@@ -722,6 +785,7 @@ class SchedulerAgent implements Closeable {
             println "Done."
         }
     }
+
 
 
 }
