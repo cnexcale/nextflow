@@ -1,30 +1,24 @@
 package nextflow.util
 
 import groovy.json.JsonBuilder
+import groovy.json.JsonOutput
 import groovy.util.logging.Slf4j
-
-import java.net.*
-import groovy.json.JsonSlurper
-import nextflow.Session
-import nextflow.executor.IgBaseTask
-import nextflow.scheduler.Protocol.Resources
 
 @Slf4j
 class IgMonitor {
-    private static String MONITORING_ENDPOINT
 
-    private URL monitorApi
+    public static String CFG_MONITORING_ENDPOINT = "cluster.monitoringEndpoint"
+
+    private URL monitoringEndpoint
 
     private JsonBuilder json
 
     IgMonitor(Map config) {
-        // TODO - setup Ignite config section
-        this.monitorApi = new URL((String)config.get(MONITORING_ENDPOINT))
-
+        this.monitoringEndpoint = new URL((String)config.navigate(CFG_MONITORING_ENDPOINT))
     }
 
     IgMonitor(String monitoringEndpoint) {
-        this.monitorApi = new URL(monitoringEndpoint)
+        this.monitoringEndpoint = new URL(monitoringEndpoint)
     }
 
     void sendUpdate(IgMonitoringUpdate update) {
@@ -40,8 +34,13 @@ class IgMonitor {
 
     }
 
+    String buildRequest(IgMonitoringUpdate update) {
+        def updateDto = new IgMonitoringUpdateDto(update)
+
+        JsonOutput.toJson(updateDto)
+    }
     private void post(String body) {
-        HttpURLConnection post = monitorApi.openConnection()
+        HttpURLConnection post = monitoringEndpoint.openConnection()
         post.setRequestMethod("POST")
         post.setRequestProperty("accept", "application/json")
         post.setDoOutput(true)
@@ -59,8 +58,5 @@ class IgMonitor {
         }
     }
 
-    private String buildRequest(IgMonitoringUpdate update) {
-        // TODO - create proper api request object
-        return ""
-    }
+
 }
