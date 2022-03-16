@@ -3,6 +3,8 @@ package nextflow.util
 import nextflow.executor.IgBaseTask
 import nextflow.scheduler.Protocol.Resources
 
+import java.time.Instant
+
 class IgMonitoringUpdate {
     String nodeId
     String clusterGroup
@@ -17,23 +19,33 @@ class IgMonitoringUpdate {
 
 class IgMonitoringUpdateDto {
 
-    class ResourceInfo {
-        Resources total
-        Resources current
+    static class ResourceInfo {
+        int cpus
+        long memory
+        long disk
 
-        ResourceInfo(Resources total, Resources current) {
-            this.total = total
-            this.current = current
+        ResourceInfo(Resources res) {
+            cpus = res.cpus
+            memory = res.memory.toBytes()
+            disk = res.disk.toBytes()
         }
     }
 
     String nodeId
     String clusterGroup
+    String hostName
+
+    String sessionId
     String taskName
     String event
-    ResourceInfo resources
+    String timeStamp
+
+    ResourceInfo totalResources
+    ResourceInfo currentResources
+
     int pendingTasks
     int activeTasks
+
     String error
 
 
@@ -44,11 +56,18 @@ class IgMonitoringUpdateDto {
     IgMonitoringUpdateDto(IgMonitoringUpdate update) {
         nodeId = update.nodeId
         clusterGroup = update.clusterGroup
-        event = update.event
+        hostName = InetAddress.localHost.hostName
+
+        sessionId = update.task.sessionId.toString()
         taskName = update.task.taskName
+        event = update.event
+        timeStamp = Instant.now().toString()
+        totalResources = new ResourceInfo(update.nodeResources)
+        currentResources = new ResourceInfo(update.currentResources)
         pendingTasks = update.pendingTasks
         activeTasks = update.activeTasks
         error = update.error?.toString()
-        resources = new ResourceInfo(update.nodeResources, update.currentResources)
+
     }
+
 }
