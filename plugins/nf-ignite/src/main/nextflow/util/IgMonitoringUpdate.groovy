@@ -36,6 +36,7 @@ class IgMonitoringUpdateDto {
     String hostName
 
     String sessionId
+    String taskId
     String taskName
     String event
     String timeStamp
@@ -58,8 +59,9 @@ class IgMonitoringUpdateDto {
         clusterGroup = update.clusterGroup
         hostName = InetAddress.localHost.hostName
 
-        sessionId = update.task.sessionId.toString()
-        taskName = update.task.taskName
+        sessionId = update.task?.sessionId?.toString()
+        taskId = update.task?.taskId?.toString()
+        taskName = update.task?.taskName
         event = update.event
         timeStamp = Instant.now().toString()
         totalResources = new ResourceInfo(update.nodeResources)
