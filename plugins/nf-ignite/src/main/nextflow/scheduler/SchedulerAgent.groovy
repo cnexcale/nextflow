@@ -139,10 +139,13 @@ class SchedulerAgent implements Closeable {
                 try {
                     if( masterId ) {
                         // process any pending events
+                        // -> as of now only resource cleanup seems to be messaged
                         processEvents()
+
                         // process any pending task
                         if( processPendingTasks(current) )
                             continue
+
                         // if got a stop event just exit
                         else if( stopped )
                             break
@@ -235,7 +238,10 @@ class SchedulerAgent implements Closeable {
             }
         }
 
+        // Until now only used to message rollBackResources() via eventsQueue
         void async( Closure closure ) {
+            // collection "<<" item
+            // => "<<" operator adds item to collection
             eventsQueue << closure
             newMessage()
         }
@@ -272,9 +278,13 @@ class SchedulerAgent implements Closeable {
             }
         }
 
+        // HINT: extend this method to modify behaviour that determines if a task
+        //       is picked from queue or not; this will be relevant
         int processPendingTasks0( Resources avail ) {
 
             // -- find candidate tasks to be executed
+            // - queries the IgniteCache (pendingTasks) for a matching resource task
+            // - ScanQuery := https://ignite.apache.org/docs/latest/key-value-api/using-cache-queries
             List<IgBaseTask> tasks = pendingTasks
                     .query(new ScanQuery<TaskId,IgBaseTask>(new MatchingResources(avail)))
                     .getAll()
@@ -448,7 +458,10 @@ class SchedulerAgent implements Closeable {
     private ExecutorService taskExecutor
 
     /**
-     * Distributed cached of all tasks waiting to be processed
+     * Distributed cache of all tasks waiting to be processed
+     * - use Ignite Key-Value (distributed in-memory) store
+     * - key := TaskId (as given by ... )
+     * - value := IgBaseTask
      */
     private IgniteCache<TaskId,IgBaseTask> pendingTasks
 

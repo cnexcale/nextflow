@@ -233,6 +233,10 @@ class Scheduler {
 
         { Event event ->
 
+            //
+            // note: the event is not processed inline, but added as a closure
+            // in the `messageQueue` object to be processed orderly in the same thread
+            //
             messageQueue << {
                 if( event instanceof DiscoveryEvent ) {
                     if( event.type() == EventType.EVT_NODE_LEFT ) {
