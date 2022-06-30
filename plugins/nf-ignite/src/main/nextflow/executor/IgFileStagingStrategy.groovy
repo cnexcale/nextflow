@@ -58,11 +58,14 @@ class IgFileStagingStrategy implements StagingStrategy {
      */
     private Path _localCacheDir
 
-    static {
-        Runtime.getRuntime().addShutdownHook { _localCacheDir?.deleteDir() }
+    Path getLocalCacheDir() { _localCacheDir }
+
+    IgFileStagingStrategy() {
+        Runtime.getRuntime().addShutdownHook (
+                new Thread(() -> _localCacheDir?.deleteDir())
+        )
     }
 
-    Path getLocalCacheDir() { _localCacheDir }
 
     /**
      * Copies to the task input files to the execution folder, that is {@link #localWorkDir}
