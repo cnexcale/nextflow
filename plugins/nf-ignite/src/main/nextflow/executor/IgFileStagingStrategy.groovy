@@ -155,6 +155,11 @@ class IgFileStagingStrategy implements StagingStrategy {
             Paths.get(task?.scratch?.toString())
             return true
         } catch (InvalidPathException ipe) {
+            log?.error("Given scratch path '${task?.scratch?.toString()}' is not valid", ipe)
+            return false
+        }
+        catch (Exception e) {
+            log?.error("Unexpected error checking scratch path '${task?.scratch?.toString()}'") // , e)
             return false
         }
     }
