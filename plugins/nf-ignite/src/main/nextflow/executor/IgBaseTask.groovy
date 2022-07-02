@@ -15,7 +15,7 @@
  */
 package nextflow.executor
 
-import nextflow.util.IgConfigMap
+import nextflow.config.ConfigMap
 
 import java.nio.channels.ClosedByInterruptException
 
@@ -69,7 +69,7 @@ abstract class IgBaseTask<T> implements IgniteCallable<T>, ComputeJob {
     /**
      * Provides access to the config map of the Session associated with the TaskRun object
      */
-    private IgConfigMap sessionConfig;
+    private Map sessionConfig;
 
     /**
      * Initialize the grid gain task wrapper
@@ -83,7 +83,8 @@ abstract class IgBaseTask<T> implements IgniteCallable<T>, ComputeJob {
         this.bean = new TaskBean(task)
         this.payload = KryoHelper.serialize(bean)
         this.resources = new TaskResources(task)
-        this.sessionConfig = new IgConfigMap(task.processor.session.config)
+        this.sessionConfig = getRelevantConfigSections(task.processor.session.config)
+
     }
 
     /** ONLY FOR TESTING PURPOSE */
@@ -192,6 +193,19 @@ abstract class IgBaseTask<T> implements IgniteCallable<T>, ComputeJob {
     @Override
     String toString() {
         "${getClass().simpleName}[taskId=${taskId}]"
+    }
+
+    // TODO
+    // task should not know or care about relevantConfigKeys
+    // maybe inject this list in constructor?
+    private ConfigMap getRelevantConfigSections(Map sessionConfig) {
+        def configPart = new ConfigMap()
+        def relevantConfigKeys = ["aws", "plugins"]
+        for (configKey in relevantConfigKeys) {
+            configPart.put(configKey, sessionConfig.get(configKey))
+        }
+
+        configPart
     }
 
 }
