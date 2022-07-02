@@ -48,6 +48,26 @@ assemble:
 check:
 	./gradlew check
 
+rm:
+	rm -rf .nextflow*
+	rm -rf work
+	rm -rf modules/nextflow/.nextflow*
+	rm -rf modules/nextflow/work
+	rm -rf build
+	rm -rf modules/*/build
+	rm -rf plugins/*/build
+	rm -rf buildSrc/build
+	rm -rf buildSrc/*/build
+	rm -rf ~/.nextflow/*
+	rm -rf ~/.gradle/*
+
+rebuild: rm
+
+	gradle compile assemble
+
+	mkdir ~/.nextflow/plugins
+	cp -r build/plugins/* ~/.nextflow/plugins/
+	gradle exportClasspath
 #
 # install compiled artifacts in Maven local dir
 # 
