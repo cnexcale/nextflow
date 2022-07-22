@@ -288,7 +288,7 @@ class SchedulerAgent implements Closeable {
                     continue
 
                 if( pendingTasks.getAndRemove(it.taskId) ) {
-                    log.trace "=== Picked task up: taskId=${it.taskId}"
+                    log.debug "=== Picked up task ${it.taskName} (taskId ${it.taskId})"
                     // -- decrement resources
                     avail.cpus -= res.cpus
                     avail.memory -= res.memory
@@ -299,6 +299,7 @@ class SchedulerAgent implements Closeable {
                         SchedulerAgent.this.runningTasks[it.taskId] = new RunHolder(taskExecutor.submit( runTask(it) ))
                     }
                     catch (RejectedExecutionException e) {
+                        log?.warn("=== Execution of picked task was rejected", e)
                         rollbackResources(it, true)
                         throw e
                     }
@@ -314,20 +315,20 @@ class SchedulerAgent implements Closeable {
         boolean canRun( IgBaseTask it, Resources avail ) {
 
             final req = it.resources
-            log.trace "Check avail resources: taskId=${it.taskId}; req=[$req]; avail=[$avail]"
+            log.debug "Check avail resources: taskId=${it.taskId}; req=[$req]; avail=[$avail]"
 
             if( req.cpus && req.cpus > avail.cpus ) {
-                log.trace "=== Cannot execute task: taskId=${it.taskId} -- CPUs request exceed available (req=${req.cpus}; avail=${avail.cpus})"
+                log.debug "=== Cannot execute task: taskId=${it.taskId} -- CPUs request exceed available (req=${req.cpus}; avail=${avail.cpus})"
                 return false
             }
 
             if( req.memory && req.memory > avail.memory ) {
-                log.trace "=== Cannot execute task: taskId=${it.taskId} -- Memory request exceed available (req=${req.memory}; avail=${avail.memory})"
+                log.debug "=== Cannot execute task: taskId=${it.taskId} -- Memory request exceed available (req=${req.memory}; avail=${avail.memory})"
                 return false
             }
 
             if( req.disk && req.disk > avail.disk ) {
-                log.trace "=== Cannot execute task: taskId=${it.taskId} -- Disk request exceed available (req=${req.disk}; avail=${avail.disk})"
+                log.debug "=== Cannot execute task: taskId=${it.taskId} -- Disk request exceed available (req=${req.disk}; avail=${avail.disk})"
                 return false
             }
 
@@ -352,7 +353,7 @@ class SchedulerAgent implements Closeable {
                 error = result instanceof Integer && ((int)result) > 0
             }
             catch( InterruptedException | ClosedByInterruptException e ) {
-                log.trace "=== Task execution was interrupted: taskId=${task.taskId} -- Message: ${e.message ?: e}"
+                log.warn "=== Task execution was interrupted: taskId=${task.taskId} -- Message: ${e.message ?: e}"
                 error = true
             }
             catch( Throwable e ) {
@@ -668,7 +669,7 @@ class SchedulerAgent implements Closeable {
     @PackageScope void notifyError(IgBaseTask task, Throwable error) {
         try {
             final taskId = task.taskId
-            log.trace "=== Notify task complete [error]: taskId=${taskId}; error=$error"
+            log.debug "=== Notify task complete [error]: taskId=${taskId}; error=$error"
             final payload = TaskComplete.error(task, error)
             sendMessageToMaster(TOPIC_SCHEDULER_EVENTS, payload)
         }
