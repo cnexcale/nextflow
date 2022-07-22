@@ -198,11 +198,15 @@ abstract class IgBaseTask<T> implements IgniteCallable<T>, ComputeJob {
     // TODO
     // task should not know or care about relevantConfigKeys
     // maybe inject this list in constructor?
-    private ConfigMap getRelevantConfigSections(Map sessionConfig) {
+    private static ConfigMap getRelevantConfigSections(Map sessionConfig) {
         def configPart = new ConfigMap()
-        def relevantConfigKeys = ["aws", "plugins"]
-        for (configKey in relevantConfigKeys) {
-            configPart.put(configKey, sessionConfig.get(configKey))
+        def relevantConfigKeys = ["aws", "plugins", "cluster"]
+        for (key in relevantConfigKeys) {
+            def val = sessionConfig.get(key)
+
+            if ( !val ) log?.warn("Empty config value for key ${key}")
+
+            configPart.put(key, val)
         }
 
         configPart
