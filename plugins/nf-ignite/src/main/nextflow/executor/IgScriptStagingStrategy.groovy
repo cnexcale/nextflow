@@ -16,6 +16,8 @@
 
 package nextflow.executor
 
+import nextflow.processor.TaskBean
+
 import java.nio.file.Files
 import java.nio.file.Path
 import groovy.util.logging.Slf4j
@@ -39,6 +41,7 @@ class IgScriptStagingStrategy extends IgFileStagingStrategy implements ScriptFil
     @Delegate(interfaces=false)
     SimpleFileCopyStrategy delegate
 
+    IgScriptStagingStrategy(TaskBean task, UUID sessionId, Map config) { super(task, sessionId, config) }
 
     /**
      * {@inheritDoc}
@@ -75,7 +78,6 @@ class IgScriptStagingStrategy extends IgFileStagingStrategy implements ScriptFil
                                  super.task.getOutputEnvNames() == null || super.task.getOutputEnvNames().empty)
 
     }
-
 
     private void copyFromScratchToWorkDir( String name, boolean ignoreError = false ) {
         try {

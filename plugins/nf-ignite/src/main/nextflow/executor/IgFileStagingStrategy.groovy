@@ -46,21 +46,35 @@ class IgFileStagingStrategy implements StagingStrategy {
     protected UUID sessionId
 
     /**
+     *
+     */
+    protected Path localStorageRoot
+
+    /**
      * The local scratch dir where the task is actually executed in the remote node.
      * Note: is declared transient because it is valid only on the remote-side,
      * thus it do not need to be transported
      *
      */
-    protected Path localWorkDir
+    private Path _localWorkDir
+
+    protected Path getLocalWorkDir() { _localWorkDir }
+
 
     /**
      * A temporary where all files are cached. The folder is deleted during instance shut-down
      */
-    private Path _localCacheDir
+    private final Path _localCacheDir
 
     Path getLocalCacheDir() { _localCacheDir }
 
-    IgFileStagingStrategy() {
+    // IgFileStagingStrategy() {
+    IgFileStagingStrategy( TaskBean task, UUID sessionId, Map config ) {
+        this.task = task
+        this.sessionId = sessionId
+        this.localStorageRoot = getLocalStorageRoot(config)
+        _localCacheDir = createLocalDir(Paths.get(localStorageRoot.toString(), "cache"))
+        _localWorkDir = createLocalDir(localStorageRoot)
         Runtime.getRuntime().addShutdownHook (
                 new Thread(() -> _localCacheDir?.deleteDir())
         )
@@ -68,25 +82,15 @@ class IgFileStagingStrategy implements StagingStrategy {
 
 
     /**
-     * Copies to the task input files to the execution folder, that is {@link #localWorkDir}
+     * Copies to the task input files to the execution folder, that is {@link #_localWorkDir}
      * folder created when this method is invoked
      */
     @Override
     void stage() {
 
-        def useScratchDir = isValidScratchDir(task)
+        _localWorkDir = createLocalDir(localStorageRoot)
 
-        // create a local scratch dir, use configured scratch if available
-        localWorkDir = useScratchDir
-                        ? FileHelper.createTempFolder(Paths.get(task.scratch.toString()))
-                        : FileHelper.createLocalDir()
-        log?.debug "Task ${task.name} >using ${localWorkDir?.toString()} as scratch/local work dir"
-        // create local cache dir, use configured scratch if available
-        _localCacheDir = useScratchDir
-                        ? FileHelper.createTempFolder(Paths.get(task.scratch.toString()))
-                        : FileHelper.createLocalDir()
-
-        log?.debug "Task ${task.name} > using ${_localCacheDir?.toString()} as cache dir"
+        log?.debug "Task ${task.name} > using workdDir ${_localWorkDir} and cache dir ${_localCacheDir?.toString()}"
 
         if( !task.inputFiles )
             return
@@ -138,7 +142,7 @@ class IgFileStagingStrategy implements StagingStrategy {
      * Copy the file with the specified name from the task execution folder
      * to the {@code targetDir}
      *
-     * @param filePattern A file name relative to the {@link #localWorkDir}.
+     * @param filePattern A file name relative to the {@link #_localWorkDir}.
      *        It can contain globs wildcards
      */
     @PackageScope
@@ -153,17 +157,18 @@ class IgFileStagingStrategy implements StagingStrategy {
         }
     }
 
-    private static boolean isValidScratchDir(TaskBean task) {
-        try {
-            Paths.get(task?.scratch?.toString())
-            return true
-        } catch (InvalidPathException ipe) {
-            log?.error("Given scratch path '${task?.scratch?.toString()}' is not valid", ipe)
-            return false
-        }
-        catch (Exception e) {
-            log?.error("Unexpected error checking scratch path '${task?.scratch?.toString()}'") // , e)
-            return false
-        }
+    private static Path getLocalStorageRoot(Map config) {
+        def localStorageRoot = (String) ((Map)config?.get("cluster"))?.get("localStorageRoot")
+        if ( localStorageRoot )
+             Paths.get(localStorageRoot)
+        else
+            null
+    }
+
+    private static Path createLocalDir(Path basePath) {
+        if ( basePath )
+            FileHelper.createTempFolder(basePath)
+        else
+            FileHelper.createLocalDir()
     }
 }

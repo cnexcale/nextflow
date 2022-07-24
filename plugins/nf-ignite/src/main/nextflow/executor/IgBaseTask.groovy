@@ -71,7 +71,7 @@ abstract class IgBaseTask<T> implements IgniteCallable<T>, ComputeJob {
     /**
      * Provides access to the config map of the Session associated with the TaskRun object
      */
-    private Map sessionConfig;
+    protected Map sessionConfig;
 
     /**
      * Initialize the grid gain task wrapper
