@@ -314,6 +314,11 @@ class SchedulerAgent implements Closeable {
 
         boolean canRun( IgBaseTask it, Resources avail ) {
 
+            if ( isNonComputingMaster() ) {
+                log.debug "+++ Cannot execute task: Master node not configured to run tasks"
+                return false
+            }
+
             final req = it.resources
             log.debug "Check avail resources: taskId=${it.taskId}; req=[$req]; avail=[$avail]"
 
@@ -333,6 +338,11 @@ class SchedulerAgent implements Closeable {
             }
 
             return true
+        }
+
+        private boolean isNonComputingMaster() {
+            return (config.getAttribute("useMasterAsCompute", "true") as String).toLowerCase() == "false"
+                    && nodeData.nodeId == masterId
         }
 
         Runnable runTask(IgBaseTask task) {
@@ -458,6 +468,8 @@ class SchedulerAgent implements Closeable {
     private volatile boolean closed
 
     private volatile UUID masterId
+
+    private volatile NodeData nodeData
 
     /**
      * Initialise the scheduler agent
@@ -635,8 +647,8 @@ class SchedulerAgent implements Closeable {
     }
 
     @PackageScope void notifyNodeStart() {
-        def data = NodeData.create(config, ignite)
-        sendMessageToMaster(TOPIC_SCHEDULER_EVENTS, data)
+        nodeData = NodeData.create(config, ignite)
+        sendMessageToMaster(TOPIC_SCHEDULER_EVENTS, nodeData)
     }
 
     @PackageScope void notifyNodeRetired(String termination) {
