@@ -73,7 +73,7 @@ class IgFileStagingStrategy implements StagingStrategy {
         this.task = task
         this.sessionId = sessionId
         this.localStorageRoot = getLocalStorageRoot(config)
-        _localCacheDir = createLocalDir(Paths.get(localStorageRoot.toString(), "cache"))
+        _localCacheDir = createLocalDir( buildCacheDirPath(localStorageRoot) )
         _localWorkDir = createLocalDir(localStorageRoot)
         Runtime.getRuntime().addShutdownHook (
                 new Thread(() -> _localCacheDir?.deleteDir())
@@ -159,16 +159,20 @@ class IgFileStagingStrategy implements StagingStrategy {
 
     private static Path getLocalStorageRoot(Map config) {
         def localStorageRoot = (String) ((Map)config?.get("cluster"))?.get("localStorageRoot")
-        if ( localStorageRoot )
-             Paths.get(localStorageRoot)
-        else
-            null
+        return localStorageRoot
+                ? Paths.get(localStorageRoot)
+                : null
     }
 
     private static Path createLocalDir(Path basePath) {
-        if ( basePath )
-            FileHelper.createTempFolder(basePath)
-        else
-            FileHelper.createLocalDir()
+        return basePath
+                ? FileHelper.createTempFolder(basePath)
+                : FileHelper.createLocalDir()
+    }
+
+    private static Path buildCacheDirPath(Path basePath) {
+        return basePath
+                    ? Paths.get(basePath.toString(), "cache")
+                    : null
     }
 }
