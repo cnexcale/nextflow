@@ -64,22 +64,28 @@ class IgFileStagingStrategy implements StagingStrategy {
     /**
      * A temporary where all files are cached. The folder is deleted during instance shut-down
      */
-    private final Path _localCacheDir
+    private static final Path _localCacheDir = FileHelper.createLocalDir()
 
-    Path getLocalCacheDir() { _localCacheDir }
+    Path getLocalCacheDir() { resolveLocalCacheDir(_localCacheDir, localStorageRoot) }
 
     // IgFileStagingStrategy() {
     IgFileStagingStrategy( TaskBean task, UUID sessionId, Map config ) {
         this.task = task
         this.sessionId = sessionId
         this.localStorageRoot = getLocalStorageRoot(config)
-        _localCacheDir = createLocalDir( buildCacheDirPath(localStorageRoot) )
+        // _localCacheDir = createLocalDir( buildCacheDirPath(localStorageRoot) )
         _localWorkDir = createLocalDir(localStorageRoot)
+        localCacheDir.deleteOnExit()
+        /*
         Runtime.getRuntime().addShutdownHook (
-                new Thread(() -> _localCacheDir?.deleteDir())
+                new Thread(() -> localCacheDir?.deleteDir())
         )
+        */
     }
 
+    private cleanup() {
+        localCacheDir?.deleteDir()
+    }
 
     /**
      * Copies to the task input files to the execution folder, that is {@link #_localWorkDir}
@@ -90,7 +96,7 @@ class IgFileStagingStrategy implements StagingStrategy {
 
         _localWorkDir = createLocalDir(localStorageRoot)
 
-        log?.debug "Task ${task.name} > using workdDir ${_localWorkDir} and cache dir ${_localCacheDir?.toString()}"
+        log?.debug "Task ${task.name} > using workdDir ${_localWorkDir} and cache dir ${localCacheDir?.toString()}"
 
         if( !task.inputFiles )
             return
@@ -174,5 +180,15 @@ class IgFileStagingStrategy implements StagingStrategy {
         return basePath
                     ? Paths.get(basePath.toString(), "cache")
                     : null
+    }
+
+    private static Path resolveLocalCacheDir(Path localCacheDir, Path localStorageRoot) {
+        if ( !localStorageRoot )
+            localCacheDir
+        else{
+            def localCacheStr = localCacheDir.toAbsolutePath().toString()
+            Paths.get(localStorageRoot.toString(), "cache", localCacheStr[1..localCacheStr.length() - 1])
+        }
+
     }
 }
