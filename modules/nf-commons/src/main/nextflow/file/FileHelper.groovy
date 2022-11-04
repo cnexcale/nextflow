@@ -18,6 +18,7 @@
 package nextflow.file
 
 import java.lang.reflect.Field
+import java.nio.file.AccessDeniedException
 import java.nio.file.CopyOption
 import java.nio.file.FileSystem
 import java.nio.file.FileSystemLoopException
@@ -794,6 +795,7 @@ class FileHelper {
         final includeFile = type in ['file','any']
         final syntax = options?.syntax ?: 'glob'
         final relative = options?.relative == true
+        final ignorePermissionError = options?.ignorePermissionError
 
         final matcher = getPathMatcherFor("$syntax:${filePattern}", folder.fileSystem)
         final singleParam = action.getMaximumNumberOfParameters() == 1
@@ -841,6 +843,12 @@ class FileHelper {
 
                     return FileVisitResult.SKIP_SUBTREE
                 }
+
+                if ( e instanceof AccessDeniedException && ignorePermissionError) {
+                    log.warn( "Access to ${currentPath.toString()} was denied but error is ignored" )
+                    return FileVisitResult.CONTINUE;
+                }
+
                 throw  e
             }
       })
